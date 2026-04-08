@@ -1,0 +1,784 @@
+HumChaosProject — Line-by-line Explanation
+=========================================
+
+This document explains what each line does and why it exists.
+Files covered:
+- src/main.js
+- src/vertex.glsl
+- src/fragment.glsl
+
+------------------------------------------------------------
+1) src/main.js
+------------------------------------------------------------
+
+1. `import * as THREE from 'three';`
+   - What: Imports the Three.js library namespace.
+   - Why: Needed to create renderer, scene, camera, geometry, and shader material.
+
+2. `import vertexShader from './vertex.glsl?raw';`
+   - What: Imports vertex shader source as a plain string.
+   - Why: `ShaderMaterial` requires raw GLSL source.
+
+3. `import fragmentShader from './fragment.glsl?raw';`
+   - What: Imports fragment shader source as a plain string.
+   - Why: This shader contains the raymarching Mandelbulb logic.
+
+4. (blank)
+   - What: Visual separation.
+   - Why: Improves readability.
+
+5. `const app = document.querySelector('#app');`
+   - What: Finds the default Vite root element.
+   - Why: Starter template injects UI there; we replace it with full-screen canvas.
+
+6. `if (app) app.remove();`
+   - What: Removes Vite starter DOM if it exists.
+   - Why: Prevents overlaying starter content over rendered shader.
+
+7. (blank)
+
+8. `const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });`
+   - What: Creates WebGL renderer.
+   - Why: Required for GPU rendering; options improve edge quality and performance hint.
+
+9. `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));`
+   - What: Caps render pixel density.
+   - Why: Balances sharpness and performance on high-DPI screens.
+
+10. `renderer.setSize(window.innerWidth, window.innerHeight);`
+    - What: Sets canvas size to full window.
+    - Why: Full-screen visual output.
+
+11. `document.body.style.margin = '0';`
+    - What: Removes page margin.
+    - Why: Ensures no white borders around canvas.
+
+12. `document.body.style.overflow = 'hidden';`
+    - What: Disables scrollbars.
+    - Why: Keeps immersive full-screen output clean.
+
+13. `document.body.appendChild(renderer.domElement);`
+    - What: Adds the WebGL canvas to the page.
+    - Why: Makes rendering visible.
+
+14. (blank)
+
+15. `const scene = new THREE.Scene();`
+    - What: Creates a scene container.
+    - Why: Three.js renderer expects scene graph structure.
+
+16. `const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);`
+    - What: Creates orthographic camera sized for clip-space quad.
+    - Why: For full-screen shader passes, no perspective geometry camera needed.
+
+17. (blank)
+
+18. `const uniforms = {`
+    - What: Starts shader uniform object.
+    - Why: Uniforms pass changing data from JS to GLSL.
+
+19. `  u_time: { value: 0 },`
+    - What: Time uniform.
+    - Why: Drives animation in shader.
+
+20. `  u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },`
+    - What: Screen resolution uniform.
+    - Why: Keeps aspect ratio and pixel-space aware effects correct.
+
+21. `  u_cameraPos: { value: new THREE.Vector3(0, 0, 5) },`
+    - What: Initial ray origin.
+    - Why: Needed for camera-space ray construction in fragment shader.
+
+22. `  u_cameraTarget: { value: new THREE.Vector3(0, 0, 0) },`
+    - What: Initial look-at target.
+    - Why: Needed to compute camera basis vectors.
+
+23. `};`
+    - What: Ends uniform object.
+    - Why: Required syntax.
+
+24. (blank)
+
+25. `const material = new THREE.ShaderMaterial({`
+    - What: Starts custom shader material creation.
+    - Why: Uses your GLSL instead of built-in material models.
+
+26. `  vertexShader,`
+    - What: Assigns vertex shader source.
+    - Why: Pass-through stage for full-screen quad.
+
+27. `  fragmentShader,`
+    - What: Assigns fragment shader source.
+    - Why: Core Mandelbulb raymarch logic runs per pixel.
+
+28. `  uniforms,`
+    - What: Binds uniforms to material.
+    - Why: Makes JS animation data available to GLSL.
+
+29. `});`
+    - What: Ends material configuration.
+    - Why: Required syntax.
+
+30. (blank)
+
+31. `const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);`
+    - What: Creates a 2x2 plane mesh in clip-space coverage.
+    - Why: One quad covers entire screen for full-screen raymarch.
+
+32. `scene.add(quad);`
+    - What: Adds quad mesh to scene.
+    - Why: Renderer needs drawable object.
+
+33. (blank)
+
+34. `// Order vs chaos concept:`
+35. `// The camera path is deterministic trigonometric law (order),`
+36. `// continuously observing recursive fractal instability (chaos).`
+    - What: Concept comments.
+    - Why: Connects implementation to assignment narrative.
+
+37. `function updateCameraPath(t) {`
+    - What: Starts camera animation function.
+    - Why: Encapsulates path math; called each frame.
+
+38. `  const radius = 4.6 + 0.7 * Math.sin(t * 0.17);`
+    - What: Oscillating orbit radius.
+    - Why: Adds breathing motion, avoids static circular path.
+
+39. `  const azimuth = t * 0.22 + 0.4 * Math.sin(t * 0.11);`
+    - What: Horizontal angle over time with modulation.
+    - Why: Creates smooth orbit and avoids repetitive monotony.
+
+40. `  const polar = 1.05 + 0.22 * Math.sin(t * 0.19) + 0.08 * Math.cos(t * 0.07);`
+    - What: Vertical angle variation.
+    - Why: Gives cinematic elevation changes.
+
+41. (blank)
+
+42. `  const sp = Math.sin(polar);`
+    - What: Sine of polar angle.
+    - Why: Reused in spherical-to-cartesian conversion.
+
+43. `  const cp = Math.cos(polar);`
+    - What: Cosine of polar angle.
+    - Why: Reused for y-coordinate conversion.
+
+44. (blank)
+
+45. `  const x = radius * sp * Math.cos(azimuth);`
+    - What: Camera x-coordinate.
+    - Why: Spherical coordinate mapping.
+
+46. `  const y = radius * cp;`
+    - What: Camera y-coordinate.
+    - Why: Polar elevation component.
+
+47. `  const z = radius * sp * Math.sin(azimuth);`
+    - What: Camera z-coordinate.
+    - Why: Completes spherical orbit mapping.
+
+48. (blank)
+
+49. `  uniforms.u_cameraPos.value.set(x, y, z);`
+    - What: Updates camera position uniform.
+    - Why: Shader rays originate from animated camera point.
+
+50. (blank)
+
+51. `  // Small target drift keeps framing cinematic but stable.`
+    - What: Comment.
+    - Why: Explains controlled target movement choice.
+
+52. `  uniforms.u_cameraTarget.value.set(`
+53. `    0.25 * Math.sin(t * 0.13),`
+54. `    0.18 * Math.sin(t * 0.21),`
+55. `    0.25 * Math.cos(t * 0.16),`
+56. `  );`
+    - What: Animates look-at point.
+    - Why: Keeps composition dynamic without disorienting motion.
+
+57. `}`
+    - What: Ends `updateCameraPath`.
+    - Why: Required syntax.
+
+58. (blank)
+
+59. `function onResize() {`
+    - What: Starts resize handler.
+    - Why: Keeps output responsive.
+
+60. `  renderer.setSize(window.innerWidth, window.innerHeight);`
+    - What: Updates canvas dimensions.
+    - Why: Prevents stretched rendering after window size changes.
+
+61. `  uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);`
+    - What: Updates shader resolution uniform.
+    - Why: Maintains correct aspect calculations inside shader.
+
+62. `}`
+    - What: Ends resize function.
+
+63. (blank)
+
+64. `window.addEventListener('resize', onResize);`
+    - What: Registers resize listener.
+    - Why: Applies responsive behavior continuously.
+
+65. (blank)
+
+66. `const clock = new THREE.Clock();`
+    - What: Creates clock.
+    - Why: Provides consistent elapsed time for animation.
+
+67. (blank)
+
+68. `function animate() {`
+    - What: Starts render loop function.
+    - Why: Repeats updates every frame.
+
+69. `  const t = clock.getElapsedTime();`
+    - What: Reads elapsed time.
+    - Why: Drives animation deterministically over time.
+
+70. `  uniforms.u_time.value = t;`
+    - What: Updates shader time uniform.
+    - Why: Enables time-based shader animation.
+
+71. `  updateCameraPath(t);`
+    - What: Updates camera path uniforms.
+    - Why: Syncs camera movement with current frame time.
+
+72. (blank)
+
+73. `  renderer.render(scene, camera);`
+    - What: Draws the frame.
+    - Why: Executes vertex + fragment shader pipeline.
+
+74. `  requestAnimationFrame(animate);`
+    - What: Schedules next frame.
+    - Why: Browser-optimized animation loop.
+
+75. `}`
+    - What: Ends animate function.
+
+76. (blank)
+
+77. `animate();`
+    - What: Starts loop.
+    - Why: Begins rendering immediately.
+
+
+------------------------------------------------------------
+2) src/vertex.glsl
+------------------------------------------------------------
+
+1. `varying vec2 vUv;`
+   - What: Declares interpolated UV output to fragment shader.
+   - Why: Fragment shader needs per-pixel normalized coordinates.
+
+2. (blank)
+
+3. `void main() {`
+   - What: Vertex shader entry point.
+   - Why: Required by GLSL.
+
+4. `  vUv = uv;`
+   - What: Copies mesh UV attribute to varying.
+   - Why: Makes UV available in fragment stage.
+
+5. `  gl_Position = vec4(position, 1.0);`
+   - What: Writes clip-space vertex position.
+   - Why: Full-screen quad is already in clip-space range.
+
+6. `}`
+   - What: Ends main.
+
+
+------------------------------------------------------------
+3) src/fragment.glsl
+------------------------------------------------------------
+
+1. `precision highp float;`
+   - What: Sets float precision high.
+   - Why: Fractal/raymarch math needs precision stability.
+
+2. (blank)
+
+3. `varying vec2 vUv;`
+   - What: Receives UV from vertex shader.
+   - Why: Used to create screen-space ray directions.
+
+4. (blank)
+
+5. `uniform float u_time;`
+   - What: Time input.
+   - Why: Animates fractal power and subtle warp.
+
+6. `uniform vec2  u_resolution;`
+   - What: Resolution input.
+   - Why: Correct aspect ratio in ray setup.
+
+7. `uniform vec3  u_cameraPos;`
+   - What: Camera origin input.
+   - Why: Ray origin for march.
+
+8. `uniform vec3  u_cameraTarget;`
+   - What: Camera look target.
+   - Why: Builds camera basis vectors.
+
+9. (blank)
+
+10. `#define MAX_STEPS 150`
+    - What: Maximum raymarch iterations.
+    - Why: Balances quality vs performance.
+
+11. `#define MAX_DIST  90.0`
+    - What: Max travel distance before miss.
+    - Why: Stops rays that never hit fractal.
+
+12. `#define HIT_EPS   0.0013`
+    - What: Surface hit threshold.
+    - Why: Determines when ray is “close enough” to surface.
+
+13. `#define FRACTAL_ITERS 10`
+    - What: Mandelbulb DE iteration count.
+    - Why: Controls detail and cost.
+
+14. `#define BAILOUT 8.0`
+    - What: Escape radius for fractal iteration.
+    - Why: Standard divergence condition.
+
+15. (blank)
+
+16. `mat3 rotY(float a){`
+    - What: Starts Y-axis rotation matrix function.
+    - Why: Used for time-varying entropy twist.
+
+17. `  float c = cos(a), s = sin(a);`
+    - What: Precomputes trig values.
+    - Why: Efficient matrix construction.
+
+18. `  return mat3(`
+19. `    c, 0.0, -s,`
+20. `    0.0, 1.0, 0.0,`
+21. `    s, 0.0,  c`
+22. `  );`
+    - What: Returns Y rotation matrix.
+    - Why: Rotates vector around Y-axis.
+
+23. `}`
+    - What: Ends function.
+
+24. (blank)
+
+25. `mat3 rotX(float a){`
+    - What: Starts X-axis rotation matrix.
+    - Why: Adds second axis twist.
+
+26. `  float c = cos(a), s = sin(a);`
+    - What: Precomputes trig values.
+
+27. `  return mat3(`
+28. `    1.0, 0.0, 0.0,`
+29. `    0.0, c, -s,`
+30. `    0.0, s,  c`
+31. `  );`
+    - What: Returns X rotation matrix.
+    - Why: Provides subtle multidirectional instability.
+
+32. `}`
+    - What: Ends function.
+
+33. (blank)
+
+34. `// Mandelbulb DE with animated power (2..8) and subtle entropy rotation.`
+    - What: Comment.
+    - Why: Documents purpose of function.
+
+35. `float mandelbulbDE(vec3 p, out float trap){`
+    - What: Starts Mandelbulb distance estimator.
+    - Why: Core SDF-like distance function for raymarching.
+
+36. `  vec3 z = p;`
+    - What: Initializes iterative variable.
+    - Why: Mandelbulb iteration begins at sample point.
+
+37. `  float dr = 1.0;`
+    - What: Initializes derivative accumulator.
+    - Why: Needed for DE formula.
+
+38. `  float r = 0.0;`
+    - What: Radius placeholder.
+    - Why: Tracks current magnitude.
+
+39. `  trap = 1e9;`
+    - What: Initializes orbit trap high.
+    - Why: Later keeps minimum radius for coloring.
+
+40. (blank)
+
+41. `  float power = mix(2.0, 8.0, 0.5 + 0.5 * sin(u_time * 0.23));`
+    - What: Animates exponent between 2 and 8.
+    - Why: Smoothly morphs fractal shape over time.
+
+42. (blank)
+
+43. `  for(int i = 0; i < FRACTAL_ITERS; i++){`
+    - What: Iteration loop.
+    - Why: Recursively applies Mandelbulb transform.
+
+44. `    r = length(z);`
+    - What: Computes current radius.
+    - Why: Used for escape test and spherical conversion.
+
+45. `    if(r > BAILOUT) break;`
+    - What: Stops if escaped.
+    - Why: Improves performance and correctness.
+
+46. (blank)
+
+47. `    trap = min(trap, r);`
+    - What: Updates orbit trap minimum.
+    - Why: Encodes structural proximity for color accents.
+
+48. (blank)
+
+49. `    float theta = acos(clamp(z.z / max(r, 1e-6), -1.0, 1.0));`
+    - What: Polar angle.
+    - Why: Converts cartesian to spherical robustly.
+
+50. `    float phi = atan(z.y, z.x);`
+    - What: Azimuth angle.
+    - Why: Needed for power transform in spherical coordinates.
+
+51. (blank)
+
+52. `    dr = power * pow(r, power - 1.0) * dr + 1.0;`
+    - What: Updates DE derivative term.
+    - Why: Required for signed distance approximation.
+
+53. (blank)
+
+54. `    float zr = pow(r, power);`
+    - What: Radius after power.
+    - Why: Mandelbulb formula.
+
+55. `    theta *= power;`
+    - What: Scales polar angle.
+    - Why: Applies exponent in angular domain.
+
+56. `    phi   *= power;`
+    - What: Scales azimuth angle.
+    - Why: Completes power transform.
+
+57. (blank)
+
+58. `    z = zr * vec3(`
+59. `      sin(theta) * cos(phi),`
+60. `      sin(theta) * sin(phi),`
+61. `      cos(theta)`
+62. `    ) + p;`
+    - What: Back to cartesian and adds original point.
+    - Why: Mandelbulb recursive feedback step.
+
+63. (blank)
+
+64. `    // Entropy injection: deterministic time-rotation that slowly destabilizes symmetry.`
+    - What: Comment.
+    - Why: Explains concept and design intent.
+
+65. `    z = rotY(0.08 * sin(u_time * 0.35)) * rotX(0.056 * sin(u_time * 0.35)) * z;`
+    - What: Applies small animated rotation.
+    - Why: Introduces controlled, evolving asymmetry.
+
+66. `  }`
+    - What: Ends iteration loop.
+
+67. (blank)
+
+68. `  return 0.5 * log(max(r, 1e-6)) * r / max(dr, 1e-6);`
+    - What: Returns DE value.
+    - Why: Standard Mandelbulb distance estimate formula.
+
+69. `}`
+    - What: Ends function.
+
+70. (blank)
+
+71. `float mapScene(vec3 p, out float trap){`
+    - What: Scene mapping function start.
+    - Why: Abstraction for potential future extra objects.
+
+72. `  return mandelbulbDE(p, trap);`
+    - What: Returns Mandelbulb distance.
+    - Why: Scene currently only fractal.
+
+73. `}`
+    - What: Ends function.
+
+74. (blank)
+
+75. `vec3 calcNormal(vec3 p){`
+    - What: Starts normal approximation function.
+    - Why: Surface shading needs normals.
+
+76. `  float t;`
+    - What: Temporary trap output placeholder.
+    - Why: `mapScene` signature requires `out` param.
+
+77. `  vec2 e = vec2(HIT_EPS, 0.0);`
+    - What: Small epsilon vector.
+    - Why: Used for finite differences.
+
+78. `  return normalize(vec3(`
+79. `    mapScene(p + e.xyy, t) - mapScene(p - e.xyy, t),`
+80. `    mapScene(p + e.yxy, t) - mapScene(p - e.yxy, t),`
+81. `    mapScene(p + e.yyx, t) - mapScene(p - e.yyx, t)`
+82. `  ));`
+    - What: Central-difference gradient.
+    - Why: Gradient direction approximates surface normal.
+
+83. `}`
+    - What: Ends function.
+
+84. (blank)
+
+85. `void buildCameraBasis(in vec3 ro, in vec3 ta, out vec3 f, out vec3 r, out vec3 u){`
+    - What: Starts camera basis builder.
+    - Why: Converts camera position/target into orthonormal axes.
+
+86. `  f = normalize(ta - ro);`
+    - What: Forward vector.
+    - Why: Ray direction base toward target.
+
+87. `  r = normalize(cross(vec3(0.0, 1.0, 0.0), f));`
+    - What: Right vector.
+    - Why: Horizontal axis from world up and forward.
+
+88. `  u = cross(f, r);`
+    - What: Up vector.
+    - Why: Completes orthonormal camera frame.
+
+89. `}`
+    - What: Ends function.
+
+90. (blank)
+
+91. `void main(){`
+    - What: Fragment shader entry point.
+    - Why: Runs once per pixel.
+
+92. `  vec2 uv = vUv * 2.0 - 1.0;`
+    - What: Converts UV (0..1) to NDC-like (-1..1).
+    - Why: Convenient symmetric screen coordinates for ray creation.
+
+93. `  uv.x *= u_resolution.x / max(u_resolution.y, 1.0);`
+    - What: Aspect correction.
+    - Why: Prevents horizontal stretching.
+
+94. (blank)
+
+95. `  vec3 ro = u_cameraPos;`
+    - What: Sets ray origin from uniform.
+    - Why: Camera animation from JS controls this.
+
+96. `  vec3 ta = u_cameraTarget;`
+    - What: Sets look target from uniform.
+    - Why: Defines forward direction.
+
+97. (blank)
+
+98. `  vec3 f, r, u;`
+    - What: Declares basis vectors.
+    - Why: Used to build world ray direction.
+
+99. `  buildCameraBasis(ro, ta, f, r, u);`
+    - What: Computes camera frame.
+    - Why: Converts screen coord to world ray.
+
+100. (blank)
+
+101. `  vec3 rd = normalize(uv.x * r + uv.y * u + 1.9 * f);`
+     - What: Computes ray direction.
+     - Why: Perspective-like projection from camera basis.
+
+102. (blank)
+
+103. `  float dTravel = 0.0;`
+     - What: Initializes marched distance.
+     - Why: Ray starts at origin.
+
+104. `  float d = 0.0;`
+     - What: Current distance sample.
+     - Why: Stores SDF/DE value per step.
+
+105. `  float trap = 0.0;`
+     - What: Current trap value.
+     - Why: Captures orbit trap during map sampling.
+
+106. `  int steps = 0;`
+     - What: Step counter.
+     - Why: Used for color mapping and diagnostics.
+
+107. (blank)
+
+108. `  for(int i = 0; i < MAX_STEPS; i++){`
+     - What: Main raymarch loop.
+     - Why: Advances ray until hit/miss.
+
+109. `    vec3 p = ro + rd * dTravel;`
+     - What: Current world sample position.
+     - Why: March point along ray.
+
+110. `    d = mapScene(p, trap);`
+     - What: Gets distance estimate.
+     - Why: Distance guides next step size.
+
+111. (blank)
+
+112. `    if(d < HIT_EPS || dTravel > MAX_DIST){`
+     - What: Hit or miss condition.
+     - Why: Terminates loop safely.
+
+113. `      steps = i;`
+     - What: Records iteration count.
+     - Why: Used later for coloring.
+
+114. `      break;`
+     - What: Exits loop.
+     - Why: No further marching needed.
+
+115. `    }`
+     - What: Ends condition block.
+
+116. (blank)
+
+117. `    dTravel += d * 0.92;`
+     - What: Advances ray by scaled distance.
+     - Why: Slightly conservative step avoids overstepping thin features.
+
+118. `    steps = i;`
+     - What: Updates steps while marching.
+     - Why: Retains latest progress if loop exits by max steps.
+
+119. `  }`
+     - What: Ends raymarch loop.
+
+120. (blank)
+
+121. `  vec3 col;`
+     - What: Declares final color variable.
+     - Why: Assigned in hit/miss branches.
+
+122. (blank)
+
+123. `  if(dTravel < MAX_DIST){`
+     - What: Hit branch.
+     - Why: If within max range, shade fractal surface.
+
+124. `    vec3 p = ro + rd * dTravel;`
+     - What: Reconstructs hit position.
+     - Why: Needed for lighting calculations.
+
+125. `    vec3 n = calcNormal(p);`
+     - What: Computes normal.
+     - Why: Diffuse/specular lighting depends on surface orientation.
+
+126. (blank)
+
+127. `    vec3 lightPos = vec3(6.0, 7.0, 5.0);`
+     - What: Light world position.
+     - Why: Defines single key light.
+
+128. `    vec3 l = normalize(lightPos - p);`
+     - What: Light direction.
+     - Why: Used in Lambert and Blinn-Phong terms.
+
+129. `    vec3 v = normalize(ro - p);`
+     - What: View direction.
+     - Why: Needed for specular and Fresnel.
+
+130. `    vec3 h = normalize(l + v);`
+     - What: Half-vector.
+     - Why: Blinn-Phong specular formulation.
+
+131. (blank)
+
+132. `    float diff = max(dot(n, l), 0.0);`
+     - What: Diffuse term.
+     - Why: Basic light intensity from incident angle.
+
+133. `    float spec = pow(max(dot(n, h), 0.0), 60.0);`
+     - What: Specular highlight.
+     - Why: Adds glossy bright accents.
+
+134. `    float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);`
+     - What: Fresnel-like rim factor.
+     - Why: Emphasizes silhouette edges and depth.
+
+135. (blank)
+
+136. `    float s = float(steps) / float(MAX_STEPS);`
+     - What: Normalized step count.
+     - Why: Encodes geometric complexity for color ramp.
+
+137. `    vec3 base = mix(vec3(0.05, 0.14, 0.35), vec3(0.95, 0.55, 0.22), smoothstep(0.05, 0.95, s));`
+     - What: Builds base gradient color.
+     - Why: Maps march complexity to warm/cool palette.
+
+138. `    base += vec3(0.2, 0.1, 0.25) * exp(-3.0 * trap);`
+     - What: Adds orbit-trap tint.
+     - Why: Reveals internal fractal strata.
+
+139. (blank)
+
+140. `    col = base * (0.13 + 1.25 * diff) + 0.75 * spec + 0.35 * fres;`
+     - What: Final lit color.
+     - Why: Combines ambient-like baseline, diffuse, specular, rim.
+
+141. `  } else {`
+     - What: Miss branch start.
+     - Why: Shade background when ray does not hit fractal.
+
+142. `    float g = 0.5 + 0.5 * rd.y;`
+     - What: Vertical gradient factor.
+     - Why: Sky-like directional background.
+
+143. `    col = mix(vec3(0.01, 0.01, 0.02), vec3(0.06, 0.09, 0.15), g);`
+     - What: Blends dark-to-blue background.
+     - Why: Adds depth and contrast to fractal silhouette.
+
+144. `  }`
+     - What: Ends hit/miss branch.
+
+145. (blank)
+
+146. `  col = col / (1.0 + col);`
+     - What: Reinhard tonemap.
+     - Why: Compresses highlights to display range.
+
+147. `  col = pow(col, vec3(0.94));`
+     - What: Gamma-like correction.
+     - Why: Adjusts perceived contrast/brightness.
+
+148. (blank)
+
+149. `  gl_FragColor = vec4(col, 1.0);`
+     - What: Writes final RGBA output.
+     - Why: Sends color to framebuffer.
+
+150. `}`
+     - What: Ends fragment `main`.
+
+
+------------------------------------------------------------
+Notes for your assignment framing
+------------------------------------------------------------
+- Predictable order:
+  - The camera path uses deterministic sine/cosine equations.
+  - The shader runs fixed update rules every frame.
+- Unpredictable/chaotic expression:
+  - Iterated fractal feedback amplifies tiny changes over time.
+  - Animated exponent and subtle rotational warp continuously alter topology.
+- Why both coexist:
+  - Strict mathematics creates emergent complexity; rules are stable, outcomes are rich.
