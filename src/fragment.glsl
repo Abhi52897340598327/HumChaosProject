@@ -13,6 +13,15 @@ uniform vec3  u_cameraTarget;
 #define FRACTAL_ITERS 10
 #define BAILOUT 8.0
 
+vec3 palette(float t){
+  // Cosine palette for rich spectral color variation.
+  vec3 a = vec3(0.52, 0.50, 0.55);
+  vec3 b = vec3(0.48, 0.46, 0.45);
+  vec3 c = vec3(1.00, 1.00, 1.00);
+  vec3 d = vec3(0.00, 0.20, 0.40);
+  return a + b * cos(6.28318 * (c * t + d));
+}
+
 mat3 rotY(float a){
   float c = cos(a), s = sin(a);
   return mat3(
@@ -134,17 +143,27 @@ void main(){
     float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
 
     float s = float(steps) / float(MAX_STEPS);
-    vec3 base = mix(vec3(0.05, 0.14, 0.35), vec3(0.95, 0.55, 0.22), smoothstep(0.05, 0.95, s));
-    base += vec3(0.2, 0.1, 0.25) * exp(-3.0 * trap);
 
-    col = base * (0.13 + 1.25 * diff) + 0.75 * spec + 0.35 * fres;
+    // Multi-source color signal: marching complexity + orbit trap + slow time hue drift.
+    float colorT = s * 1.6 + 0.45 * exp(-2.2 * trap) + 0.08 * sin(u_time * 0.22);
+    vec3 spectral = palette(colorT);
+
+    // Extra magenta/cyan accent layer to intensify fractal boundaries.
+    vec3 accent = mix(vec3(1.00, 0.15, 0.70), vec3(0.05, 0.95, 1.00), smoothstep(0.10, 0.95, s));
+    vec3 base = mix(spectral, accent, 0.35 + 0.25 * fres);
+
+    col = base * (0.16 + 1.35 * diff) + 0.95 * spec + 0.55 * fres;
   } else {
     float g = 0.5 + 0.5 * rd.y;
-    col = mix(vec3(0.01, 0.01, 0.02), vec3(0.06, 0.09, 0.15), g);
+    vec3 skyA = vec3(0.01, 0.01, 0.03);
+    vec3 skyB = vec3(0.12, 0.05, 0.22);
+    vec3 skyC = vec3(0.08, 0.25, 0.40);
+    col = mix(skyA, skyB, g);
+    col = mix(col, skyC, 0.35 * (0.5 + 0.5 * sin(u_time * 0.15 + rd.x * 1.8)));
   }
 
   col = col / (1.0 + col);
-  col = pow(col, vec3(0.94));
+  col = pow(col, vec3(0.90));
 
   gl_FragColor = vec4(col, 1.0);
 }
