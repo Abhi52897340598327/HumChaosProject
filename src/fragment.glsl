@@ -1,3 +1,4 @@
+// Fragment shader for Mandelbulb ray marching with dynamic coloring and animation.
 precision highp float;
 
 varying vec2 vUv;

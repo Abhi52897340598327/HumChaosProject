@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import vertexShader from './vertex.glsl?raw';
 import fragmentShader from './fragment.glsl?raw';
 
+// initializig renderer and appending to DOM
 const app = document.querySelector('#app');
 if (app) app.remove();
 
@@ -56,6 +57,7 @@ function updateCameraPath(t) {
   );
 }
 
+// handles window resizing
 function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
@@ -65,6 +67,7 @@ window.addEventListener('resize', onResize);
 
 const clock = new THREE.Clock();
 
+// starts animation loop
 function animate() {
   const t = clock.getElapsedTime();
   uniforms.u_time.value = t;
